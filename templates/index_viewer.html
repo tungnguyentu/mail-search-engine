@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Whoosh Index Viewer</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .stats { margin-bottom: 20px; }
+        .docs { margin-bottom: 30px; }
+        .field-stats { margin-bottom: 30px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+    <h1>Whoosh Index Viewer</h1>
+    
+    <div class="stats">
+        <h2>Index Statistics</h2>
+        <p>Total Documents: {{ stats.doc_count }}</p>
+        <p>Fields: {{ stats.fields|join(', ') }}</p>
+    </div>
+
+    <div class="field-stats">
+        <h2>Field Statistics</h2>
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Unique Terms</th>
+                <th>Sample Terms</th>
+            </tr>
+            {% for field, field_stat in stats.field_stats.items() %}
+            <tr>
+                <td>{{ field }}</td>
+                <td>{{ field_stat.unique_terms }}</td>
+                <td>{{ field_stat.sample_terms|join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="docs">
+        <h2>Latest Documents</h2>
+        <table>
+            <tr>
+                {% for field in stats.fields %}
+                <th>{{ field }}</th>
+                {% endfor %}
+            </tr>
+            {% for doc in stats.latest_docs %}
+            <tr>
+                {% for field in stats.fields %}
+                <td>{{ doc.get(field, '') }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html> 

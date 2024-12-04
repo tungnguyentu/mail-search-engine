@@ -1,12 +1,20 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
+from src.config.settings import settings
 from src.core.engine import EmailSearchEngine
 import logging
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+import os
+from whoosh import index
+from whoosh.reading import IndexReader
+from itertools import islice
 
 router = APIRouter()
 search_engine = EmailSearchEngine()
+templates = Jinja2Templates(directory="templates")
 
 class SearchResponse(BaseModel):
     total: int
@@ -50,3 +58,36 @@ async def search_emails(
     except Exception as e:
         logging.error(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/index-viewer", response_class=HTMLResponse)
+async def view_index(request: Request):
+    index_stats = get_index_stats()
+    return templates.TemplateResponse(
+        "index_viewer.html", 
+        {"request": request, "stats": index_stats}
+    )
+
+def get_index_stats():
+    ix = index.open_dir(settings.INDEX_DIR)
+    reader = ix.reader()
+    
+    stats = {
+        'doc_count': reader.doc_count(),
+        'fields': list(reader.schema.names()),
+        'latest_docs': get_latest_documents(reader, limit=10),
+        'field_stats': get_field_stats(reader),
+    }
+    reader.close()
+    return stats
+
+def get_latest_documents(reader: IndexReader, limit: int = 10):
+    return [dict(doc) for doc in islice(reader.all_stored_fields(), limit)]
+
+def get_field_stats(reader: IndexReader):
+    stats = {}
+    for field in reader.schema.names():
+        stats[field] = {
+            'unique_terms': len(list(reader.lexicon(field))),
+            'sample_terms': list(reader.lexicon(field))[:5]
+        }
+    return stats
