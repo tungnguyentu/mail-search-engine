@@ -127,26 +127,40 @@ class EmailSearchEngine:
             logging.error(f"Error processing event: {e}", exc_info=True)
 
     def _get_body_from_s3(self, email: str, message_id: str, label: str) -> str:
-        """Fetch email body from S3 for specific label"""
+        """Fetch email body from S3 for specific label with retry logic"""
         try:
+            # First attempt: try with label in path
             label = slugify(label)
-            # Construct S3 key using email, label, and message_id
             s3_key = f"{email}/{label}/{message_id}.txt"
             
-            # Get object from S3
-            response = self.s3_client.get_object(
-                Bucket=settings.S3_BUCKET_NAME,
-                Key=s3_key
-            )
-            
-            # Read body content
-            body = response['Body'].read().decode('utf-8')
-            logging.info(f"Successfully fetched body for message {message_id} from label {label}")
-            return body
-            
-        except ClientError as e:
-            logging.error(f"Error fetching body from S3 for message {message_id}, label {label}: {e}")
-            return ""
+            try:
+                # Try to get object with label path
+                response = self.s3_client.get_object(
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=s3_key
+                )
+                body = response['Body'].read().decode('utf-8')
+                logging.info(f"Successfully fetched body for message {message_id} from label path: {s3_key}")
+                return body
+                
+            except ClientError as e:
+                logging.info(f"Body not found in label path, trying direct path: {e}")
+                
+                # Second attempt: try direct path without label
+                s3_key = f"{email}/{message_id}.txt"
+                try:
+                    response = self.s3_client.get_object(
+                        Bucket=settings.S3_BUCKET_NAME,
+                        Key=s3_key
+                    )
+                    body = response['Body'].read().decode('utf-8')
+                    logging.info(f"Successfully fetched body for message {message_id} from direct path: {s3_key}")
+                    return body
+                    
+                except ClientError as e:
+                    logging.error(f"Body not found in both paths for message {message_id}: {e}")
+                    return ""
+                    
         except Exception as e:
             logging.error(f"Unexpected error fetching body from S3: {e}")
             return ""
