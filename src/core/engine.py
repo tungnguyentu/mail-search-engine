@@ -375,7 +375,12 @@ class EmailSearchEngine:
                     queries.append(Term("has_attachment", str(search_params['has_attachment']).lower()))
                 
                 if search_params.get('labels'):
-                    labels_query = QueryParser("labels", self.schema).parse(search_params['labels'])
+                    if isinstance(search_params['labels'], list):
+                        # Convert list to comma-separated string
+                        labels_str = ','.join(search_params['labels'])
+                    else:
+                        labels_str = search_params['labels']
+                    labels_query = QueryParser("labels", self.schema).parse(labels_str)
                     queries.append(labels_query)
 
                 # Add is_read filter

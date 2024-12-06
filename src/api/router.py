@@ -40,9 +40,6 @@ async def search_emails(
     page_size: int = Query(10, ge=1, le=100, description="Results per page")
 ):
     try:
-        # Convert comma-separated labels to list
-        label_list = labels.split(',') if labels else None
-        
         results = search_engine.search(
             email_id=email_id,
             subject=subject,
@@ -52,7 +49,7 @@ async def search_emails(
             from_date=from_date,
             to_date=to_date,
             has_attachment=has_attachment,
-            labels=label_list,
+            labels=labels,
             is_read=is_read,
             is_starred=is_starred,
             page=page,
