@@ -380,11 +380,21 @@ class EmailSearchEngine:
 
                 # Add is_read filter
                 if search_params.get('is_read') is not None:
-                    queries.append(Term("is_read", str(search_params['is_read']).lower()))
+                    if search_params['is_read']:
+                        # If searching for read emails, only get True
+                        queries.append(Term("is_read", "true"))
+                    else:
+                        # If searching for unread emails, get both False and null
+                        queries.append(Or([Term("is_read", "false"), Term("is_read", "")]))
 
                 # Add is_starred filter
                 if search_params.get('is_starred') is not None:
-                    queries.append(Term("is_starred", str(search_params['is_starred']).lower()))
+                    if search_params['is_starred']:
+                        # If searching for starred emails, only get True
+                        queries.append(Term("is_starred", "true"))
+                    else:
+                        # If searching for unstarred emails, get both False and null
+                        queries.append(Or([Term("is_starred", "false"), Term("is_starred", "")]))
 
                 # Combine all queries with AND
                 final_query = And(queries)
