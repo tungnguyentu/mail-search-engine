@@ -34,6 +34,8 @@ async def search_emails(
     to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     has_attachment: Optional[bool] = Query(None, description="Filter by attachment presence"),
     labels: Optional[str] = Query(None, description="Comma-separated list of labels"),
+    is_read: Optional[bool] = Query(None, description="Filter by is read"),
+    is_starred: Optional[bool] = Query(None, description="Filter by is starred"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Results per page")
 ):
@@ -51,6 +53,8 @@ async def search_emails(
             to_date=to_date,
             has_attachment=has_attachment,
             labels=label_list,
+            is_read=is_read,
+            is_starred=is_starred,
             page=page,
             page_size=page_size
         )

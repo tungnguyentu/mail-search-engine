@@ -317,22 +317,14 @@ class EmailSearchEngine:
                from_date: str = None,
                to_date: str = None,
                has_attachment: bool = None,
-               labels: List[str] = None,
+               labels: str = None,
+               is_read: bool = None,
+               is_starred: bool = None,
                page: int = 1,
                page_size: int = 10) -> Dict:
-        """Enhanced search with caching"""
+        """Search emails with filters"""
         try:
-            # Return empty results if email_id is not provided
-            if not email_id:
-                return {
-                    'total': 0,
-                    'page': page,
-                    'page_size': page_size,
-                    'total_pages': 0,
-                    'results': []
-                }
-
-            cache_key_params = {
+            search_params = {
                 'email_id': email_id,
                 'subject': subject,
                 'body': body,
@@ -342,53 +334,18 @@ class EmailSearchEngine:
                 'to_date': to_date,
                 'has_attachment': has_attachment,
                 'labels': labels,
+                'is_read': is_read,
+                'is_starred': is_starred,
                 'page': page,
                 'page_size': page_size
             }
-            
-            cached_results = self.cache.get_search_results(**cache_key_params)
-            if cached_results:
-                logging.info("Cache hit for search query")
-                return cached_results
 
-            results = self._perform_search(**cache_key_params)
-            self.cache.cache_search_results(cache_key_params, results)
-            
-            return results
-        except Exception as e:
-            logging.error(f"Search error: {e}")
-            raise
-
-    def _perform_search(self, **search_params) -> Dict:
-        """Internal search implementation"""
-        with self.ix.searcher() as searcher:
-            try:
+            with self.ix.searcher() as searcher:
                 queries = []
                 
-                # Email ID search (required)
-                email_id = search_params.get('email_id')
-                if not email_id:
-                    return {
-                        'total': 0,
-                        'page': search_params.get('page', 1),
-                        'page_size': search_params.get('page_size', 10),
-                        'total_pages': 0,
-                        'results': []
-                    }
-                queries.append(Term("email_id", email_id))
-
-                # Address search (including CC/BCC for to_addr search)
-                if search_params.get('to_addr'):
-                    to_query = QueryParser("to_addr", self.schema).parse(search_params['to_addr'])
-                    cc_query = QueryParser("cc_addr", self.schema).parse(search_params['to_addr'])
-                    bcc_query = QueryParser("bcc_addr", self.schema).parse(search_params['to_addr'])
-                    # Match if address appears in any recipient field
-                    queries.append(Or([to_query, cc_query, bcc_query]))
+                # Add email_id query
+                queries.append(Term("email_id", str(email_id)))
                 
-                if search_params.get('from_addr'):
-                    from_query = QueryParser("from_addr", self.schema).parse(search_params['from_addr'])
-                    queries.append(from_query)
-
                 # Add other search criteria
                 if search_params.get('subject'):
                     subject_query = QueryParser("subject", self.schema).parse(search_params['subject'])
@@ -398,33 +355,40 @@ class EmailSearchEngine:
                     body_query = QueryParser("body", self.schema).parse(search_params['body'])
                     queries.append(body_query)
                 
-                if search_params.get('from_date') or search_params.get('to_date'):
-                    from_dt = datetime.strptime(search_params['from_date'], '%Y-%m-%d') if search_params.get('from_date') else None
-                    to_dt = datetime.strptime(search_params['to_date'], '%Y-%m-%d') if search_params.get('to_date') else None
-                    date_query = DateRange("date", from_dt, to_dt)
+                if search_params.get('to_addr'):
+                    to_query = QueryParser("to_addr", self.schema).parse(search_params['to_addr'])
+                    cc_query = QueryParser("cc_addr", self.schema).parse(search_params['to_addr'])
+                    bcc_query = QueryParser("bcc_addr", self.schema).parse(search_params['to_addr'])
+                    queries.append(Or([to_query, cc_query, bcc_query]))
+                
+                if search_params.get('from_addr'):
+                    from_query = QueryParser("from_addr", self.schema).parse(search_params['from_addr'])
+                    queries.append(from_query)
+                
+                if search_params.get('from_date') and search_params.get('to_date'):
+                    date_query = DateRange("date", 
+                                         datetime.strptime(search_params['from_date'], '%Y-%m-%d'),
+                                         datetime.strptime(search_params['to_date'], '%Y-%m-%d'))
                     queries.append(date_query)
                 
                 if search_params.get('has_attachment') is not None:
-                    has_attachment = (
-                        search_params['has_attachment'] 
-                        if isinstance(search_params['has_attachment'], bool)
-                        else search_params['has_attachment'].lower() == 'true'
-                    )
-                    queries.append(Term("has_attachment", has_attachment))
+                    queries.append(Term("has_attachment", str(search_params['has_attachment']).lower()))
                 
                 if search_params.get('labels'):
-                    label_queries = []
-                    for label in search_params['labels']:
-                        label_queries.append(Term("labels", label.lower()))
-                    if len(label_queries) > 1:
-                        queries.append(Or(label_queries))
-                    else:
-                        queries.append(label_queries[0])
+                    labels_query = QueryParser("labels", self.schema).parse(search_params['labels'])
+                    queries.append(labels_query)
+
+                # Add is_read filter
+                if search_params.get('is_read') is not None:
+                    queries.append(Term("is_read", str(search_params['is_read']).lower()))
+
+                # Add is_starred filter
+                if search_params.get('is_starred') is not None:
+                    queries.append(Term("is_starred", str(search_params['is_starred']).lower()))
 
                 # Combine all queries with AND
                 final_query = And(queries)
-                logging.info(f"Final query: {final_query}")
-
+                
                 # Execute search
                 results = searcher.search_page(
                     final_query,
@@ -440,9 +404,9 @@ class EmailSearchEngine:
                     'results': [self._format_result(r) for r in results]
                 }
                 
-            except Exception as e:
-                logging.error(f"Search execution error: {e}", exc_info=True)
-                raise
+        except Exception as e:
+            logging.error(f"Search execution error: {e}", exc_info=True)
+            raise
 
     def _format_result(self, result) -> Dict:
         """Format search result"""
