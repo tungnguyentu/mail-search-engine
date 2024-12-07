@@ -37,6 +37,8 @@ async def search_emails(
     labels: Optional[str] = Query(None, description="Comma-separated list of labels"),
     is_read: Optional[bool] = Query(None, description="Filter by is read"),
     is_starred: Optional[bool] = Query(None, description="Filter by is starred"),
+    sort_by: Optional[str] = Query("relevance", description="Sort by: relevance, date"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc, desc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Results per page")
 ):
@@ -54,6 +56,8 @@ async def search_emails(
             labels=labels,
             is_read=is_read,
             is_starred=is_starred,
+            sort_by=sort_by,
+            sort_order=sort_order,
             page=page,
             page_size=page_size
         )

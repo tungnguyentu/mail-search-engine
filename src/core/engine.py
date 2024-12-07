@@ -321,9 +321,11 @@ class EmailSearchEngine:
                labels: str = None,
                is_read: bool = None,
                is_starred: bool = None,
+               sort_by: str = "relevance",
+               sort_order: str = "desc",
                page: int = 1,
                page_size: int = 10) -> Dict:
-        """Search emails with filters"""
+        """Search emails with filters and sorting"""
         try:
             search_params = {
                 'email_id': email_id,
@@ -338,6 +340,8 @@ class EmailSearchEngine:
                 'labels': labels,
                 'is_read': is_read,
                 'is_starred': is_starred,
+                'sort_by': sort_by,
+                'sort_order': sort_order,
                 'page': page,
                 'page_size': page_size
             }
@@ -413,19 +417,32 @@ class EmailSearchEngine:
                 # Combine all queries with AND
                 final_query = And(queries)
                 
-                # Execute search
+                # Configure sorting
+                sort_params = None
+                reverse = sort_order.lower() == "desc"
+
+                if sort_by == "date":
+                    sort_params = ("date", reverse)
+                elif sort_by == "relevance" and qall:  # Only sort by relevance if there's a text query
+                    sort_params = None  # Default Whoosh scoring
+                else:
+                    sort_params = None  # Default to relevance
+
+                # Execute search with sorting
                 results = searcher.search_page(
                     final_query,
                     pagenum=search_params.get('page', 1),
-                    pagelen=search_params.get('page_size', 10)
+                    pagelen=search_params.get('page_size', 10),
+                    sortedby=sort_params
                 )
-                
+
+                # Add score to results
                 return {
                     'total': len(results),
                     'page': search_params.get('page', 1),
                     'page_size': search_params.get('page_size', 10),
                     'total_pages': (len(results) + search_params.get('page_size', 10) - 1) // search_params.get('page_size', 10),
-                    'results': [self._format_result(r) for r in results]
+                    'results': [self._format_result_with_score(r) for r in results]
                 }
                 
         except Exception as e:
@@ -465,6 +482,12 @@ class EmailSearchEngine:
             'is_starred': result.get('is_starred'),
             'read_date': result.get('read_date')
         }
+
+    def _format_result_with_score(self, result) -> Dict:
+        """Format search result with relevance score"""
+        formatted = self._format_result(result)
+        formatted['score'] = result.score  # Add relevance score
+        return formatted
 
     def cleanup(self):
         """Cleanup resources"""
