@@ -26,6 +26,7 @@ class SearchResponse(BaseModel):
 @router.get("/search", response_model=SearchResponse)
 async def search_emails(
     email_id: Optional[str] = Query(None, description="Search by email ID"),
+    qall: Optional[str] = Query(None, description="Search all text fields"),
     subject: Optional[str] = Query(None, description="Search in email subject"),
     body: Optional[str] = Query(None, description="Search in email body"),
     from_addr: Optional[str] = Query(None, description="Filter by sender email"),
@@ -42,6 +43,7 @@ async def search_emails(
     try:
         results = search_engine.search(
             email_id=email_id,
+            qall=qall,
             subject=subject,
             body=body,
             from_addr=from_addr,

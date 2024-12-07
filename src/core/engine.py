@@ -310,6 +310,7 @@ class EmailSearchEngine:
 
     def search(self,
                email_id: str,
+               qall: str = None,
                subject: str = None,
                body: str = None,
                from_addr: str = None,
@@ -326,6 +327,7 @@ class EmailSearchEngine:
         try:
             search_params = {
                 'email_id': email_id,
+                'qall': qall,
                 'subject': subject,
                 'body': body,
                 'from_addr': from_addr,
@@ -345,6 +347,13 @@ class EmailSearchEngine:
                 
                 # Add email_id query
                 queries.append(Term("email_id", str(email_id)))
+                
+                # Add qall search across all text fields
+                if search_params.get('qall'):
+                    text_fields = ["subject", "body", "from_addr", "to_addr", "cc_addr", "bcc_addr"]
+                    qall_parser = MultifieldParser(text_fields, self.schema)
+                    qall_query = qall_parser.parse(search_params['qall'])
+                    queries.append(qall_query)
                 
                 # Add other search criteria
                 if search_params.get('subject'):
