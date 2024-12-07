@@ -422,7 +422,7 @@ class EmailSearchEngine:
                 reverse = sort_order.lower() == "desc"
 
                 if sort_by == "date":
-                    sort_params = ("date", reverse)
+                    sort_params = "date"
                 elif sort_by == "relevance":
                     # Always use relevance scoring, not just for text queries
                     sort_params = None  # Default Whoosh scoring will be used
