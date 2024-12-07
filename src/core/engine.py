@@ -423,8 +423,9 @@ class EmailSearchEngine:
 
                 if sort_by == "date":
                     sort_params = ("date", reverse)
-                elif sort_by == "relevance" and qall:  # Only sort by relevance if there's a text query
-                    sort_params = None  # Default Whoosh scoring
+                elif sort_by == "relevance":
+                    # Always use relevance scoring, not just for text queries
+                    sort_params = None  # Default Whoosh scoring will be used
                 else:
                     sort_params = None  # Default to relevance
 
